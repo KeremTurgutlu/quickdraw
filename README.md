@@ -1,4 +1,5 @@
-# Quick, Draw! Kaggle Competition Starter Pack v2
+# Quick, Draw! Kaggle Competition Starter Pack v3 [all credit to radek] 
+This is a clone from radek and scales the training to 100K iamges per class with different data loading strategy.
 
 The code in this repo is all you need to make a first submission to the [Quick, Draw! Kaggle Competition](https://www.kaggle.com/c/quickdraw-doodle-recognition). It uses the [FastAi library](https://github.com/fastai/fastai).
 
