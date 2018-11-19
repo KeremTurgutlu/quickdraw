@@ -55,11 +55,40 @@ def top_3_pred_labels(preds, classes):
     top_3 = top_3_preds(preds)
     labels = []
     for i in range(top_3.shape[0]):
-        labels.append(' '.join([classes[idx] for idx in top_3[i]]))
+        labels.append(' '.join([classes[idx].replace(" ", "_") for idx in top_3[i]]))
     return labels
 
 def create_submission(test_preds, test_dl, name):
-    key_ids = [path.stem for path in test_dl.dataset.x.items]
+    key_ids = [item[1] for item in test_dl.dataset.x.items]
     labels = top_3_pred_labels(test_preds, classes)
     sub = pd.DataFrame({'key_id': key_ids, 'word': labels})
-    sub.to_csv(f'subs/{name}.csv.gz', index=False, compression='gzip')
+    sub.to_csv(f'../data/quickdraw/submission/{name}.csv.gz', index=False, compression='gzip')
+
+def create_channels(input_list, **kwargs):
+    return list2drawing(input_list, lw=5, time_color=False, **kwargs)   
+
+def list2multichannel(input_list, **kwargs):
+    if len(input_list) == 1:
+        parts = [create_channels(input_list, **kwargs)]*6
+    else:
+        if len(input_list) == 2:
+            inp1, inp2 = [input_list[0]], [input_list[1]]
+            part1 = create_channels(inp1, **kwargs)
+            part2 = create_channels(inp2, **kwargs)
+            part3 = np.zeros((kwargs['size'], kwargs['size']))
+            part4 = create_channels(inp1+inp2, **kwargs)
+            part5 = create_channels(inp2, **kwargs) + part3
+            part6 = create_channels(inp1+inp2, **kwargs) + part3
+            parts = [part1, part2, part3, part4, part5, part6]
+
+        else:
+            div, mod = divmod(len(input_list), 3)
+            inp1, inp2, inp3 = input_list[:div], input_list[div*1:div*2], input_list[div*2:div*3+mod]
+            part1 = create_channels(inp1, **kwargs)
+            part2 = create_channels(inp2, **kwargs)
+            part3 = create_channels(inp3, **kwargs)
+            part4 = create_channels(inp1+inp2, **kwargs)
+            part5 = create_channels(inp2+inp3, **kwargs)
+            part6 = create_channels(inp1+inp2+inp3, **kwargs)
+            parts = [part1, part2, part3, part4, part5, part6]
+    return np.array(parts)
