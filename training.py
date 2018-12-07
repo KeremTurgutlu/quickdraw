@@ -10,14 +10,14 @@ NUM_VAL = 50 * 340
 
 PATH = Path('../data/quickdraw/')
 
-bs = 200
+bs = 100
 sz = 256
 test_df = pd.read_csv(PATH/"test_simplified.csv")
 
 def create_func(item):
     with open(item) as f: item = f.read()
-    arr = list2drawing(json.loads(item)['data'], size=sz, lw=6, time_color=True)
-    img = cv2.cvtColor(arr, cv2.COLOR_GRAY2RGB)
+    img = list2drawing(json.loads(item)['data'], size=sz, lw=4, time_color=True)
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
     tensor = torch.from_numpy(img).float()
     return Image(tensor.permute((2,0,1)).div_(255))
 
@@ -56,8 +56,11 @@ class RandomSamplerWithEpochSize(Sampler):
     def __len__(self):
         return self.epoch_size
     
-epoch_size = 400_000
+epoch_size = 1_000_000
 print(f"Save model every {epoch_size} iters")
+
+tfms = get_transforms(do_flip=True, flip_vert=False, 
+                      max_rotate=10, max_zoom=0, max_lighting=None, max_warp=None)
 
 train_dl = DataLoader(label_lists.train, num_workers=8,
     batch_sampler=BatchSampler(RandomSamplerWithEpochSize(label_lists.train, epoch_size), bs, True))
@@ -65,15 +68,21 @@ valid_dl = DataLoader(label_lists.valid, bs, False, num_workers=8)
 test_dl = DataLoader(label_lists.test, bs, False, num_workers=8)
 data_bunch = ImageDataBunch(train_dl, valid_dl, test_dl)
 
+classes = data_bunch.classes
+pd.to_pickle(classes, PATH/"classes.pkl")
+
 from fastai.callbacks import SaveModelCallback, EarlyStoppingCallback
 import sys
-sys.path.append("pytorch-mobilenet-v2/")
-from MobileNetV2 import MobileNetV2
-model = MobileNetV2(340)
+sys.path.append("./senet.pytorch/")
+from se_resnet import se_resnet50
+model = se_resnet50(340)
 learn = Learner(data_bunch, model, metrics=[accuracy, map3],
-                callback_fns=[partial(SaveModelCallback, every="epoch")])
-learn.load("final-mobilenet-stage-1")
-learn.fit_one_cycle(58, max_lr=5e-3)
+                callback_fns=[partial(SaveModelCallback, every="epoch", name="senet-v2")])
 
-name = 'final-mobilenet'
-learn.save(f'{name}-stage-2')
+ckpt = "final-senet-stage-1"
+print(f"Loading ckpt : {ckpt}")
+learn.load(ckpt)
+learn.fit_one_cycle(72, max_lr=5e-4)
+
+name = 'final-senet-stage-1'
+learn.save(f'{name}')
